@@ -1,28 +1,33 @@
 'use client';
-import { useEffect } from "react";
-import { io } from "socket.io-client";
+import { useEffect, useState } from "react";
+import { io, Socket } from "socket.io-client";
 import "./snake.scss";
 
 export default function Snake() {
-  const snakeGridSize = 40;
-  const snakeSpeed = 200;
   const snakeInitialLength = 3;
+  const snakeGridSize = 40;
+  const snakeSpeed = 100;
   const snakeInitialPosition = {
     x: Math.floor(snakeGridSize / 2),
     y: Math.floor(snakeGridSize / 2),
   };
 
+  const [socket, setSocket] = useState(io("http://localhost:3000"));
+  const [snake, setSnake] = useState<{
+    x: number;
+    y: number;
+  }[]>(Array.from({ length: snakeInitialLength }).map((_, i) => ({
+    x: snakeInitialPosition.x - i,
+    y: snakeInitialPosition.y,
+  })));
+
   useEffect(() => {
     console.log("Snake page mounted");
-    const socket = io("http://localhost:3000");
-
     socket.on("connect", () => {
       console.log("Connected to server");
     });
 
-    socket.on("message", (data) => {
-      console.log(data);
-    });
+    socket.emit("join-room", "snake");
 
     socket.on("joined", (data) => {
       console.log(data);
@@ -32,6 +37,17 @@ export default function Snake() {
       console.log(data);
     });
 
+    socket.on("snake-position", (data) => {
+      const cells = document.querySelectorAll(".opponent");
+      cells.forEach((cell) => cell.classList.remove("opponent"));
+
+      data.forEach((cell) => {
+        const cellElement = document.querySelector(
+          `.row:nth-child(${cell.y + 1}) .cell:nth-child(${cell.x + 1})`
+        );
+        cellElement?.classList.add("opponent");
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -54,15 +70,11 @@ export default function Snake() {
         default:
           break;
       }
+
+      socket.emit("change-direction", direction);
     };
 
     document.addEventListener("keydown", handleKeyPress);
-
-    // Render snake
-    const snake = Array.from({ length: snakeInitialLength }).map((_, i) => ({
-      x: snakeInitialPosition.x - i,
-      y: snakeInitialPosition.y,
-    }));
 
     // Add the snake class to the cells
     snake.forEach((cell) => {
@@ -99,6 +111,8 @@ export default function Snake() {
       if (foodElement && newHeadElement === foodElement) {
         handleFoodEaten();
       }
+
+      socket.emit("snake-position", snake);
     };
 
     const handleFoodEaten = () => {
@@ -110,7 +124,7 @@ export default function Snake() {
       );
 
       tailElement?.classList.add("snake");
-      
+
       const foodElement = document.querySelector(".food");
       foodElement?.classList.remove("food");
       createNewFood();
@@ -151,6 +165,8 @@ export default function Snake() {
           </div>
         ))}
       </div>
+
+      <button onClick={() => socket.emit("kill-rooms")}>Kill rooms</button>
     </div>
   );
 }
