@@ -12,7 +12,7 @@ export default function Snake() {
     y: Math.floor(snakeGridSize / 2),
   };
 
-  const [socket, setSocket] = useState(io("http://localhost:3000"));
+  const [socket, setSocket] = useState(io("http://localhost:3001"));
   const [snake, setSnake] = useState<{
     x: number;
     y: number;
